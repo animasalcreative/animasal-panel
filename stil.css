@@ -40,6 +40,17 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 .sekmeler::-webkit-scrollbar{display:none}
 .sekme{border:1px solid var(--cizgi);background:var(--yuzey);color:var(--soluk);padding:8px 14px;border-radius:99px;font-weight:600;font-size:14px;white-space:nowrap;min-height:40px}
 .sekme[aria-selected="true"]{background:var(--marka);border-color:var(--marka);color:var(--bg)}
+/* telefonda sekmeler yana kaymaz, iki satıra dizilir */
+@media (max-width:640px){
+  .sekmeler{display:grid;grid-template-columns:repeat(4,1fr);overflow:visible;gap:6px}
+  .sekme{padding:8px 4px;font-size:13px;white-space:normal;line-height:1.15;text-align:center}
+  .sekme .rozet{margin-left:3px}
+}
+/* üstte duran bildirim şeridi (yönetim) */
+.bildirim-serit{display:flex;flex-wrap:wrap;gap:6px;padding-block:0 8px}
+.bildirim-oge{border:1px solid var(--cizgi);background:var(--bg);color:var(--yazi,inherit);padding:6px 10px;border-radius:8px;font-size:13px;font-weight:600;min-height:34px;text-align:left}
+.bildirim-oge.uyari{border-color:var(--acil);color:var(--acil)}
+.bildirim-oge.tamam{color:var(--soluk);font-weight:500;border-style:dashed}
 .rozet{display:inline-block;min-width:20px;padding:0 6px;margin-left:6px;border-radius:99px;background:var(--acil);color:#fff;font-size:12px;line-height:20px;text-align:center}
 
 /* gövde */

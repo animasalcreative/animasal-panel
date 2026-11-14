@@ -199,12 +199,18 @@ async function ortakYukle() {
     sb.from('musteri_mesajlari').select('id', { count: 'exact', head: true }).eq('taraf', 'musteri').is('okundu_animasal', null)
   ])
   D.ppSayi = (i.count || 0) + (m.count || 0)
+  // üst bildirim şeridi: bitmemiş acil planlar (açık projelerde)
+  const acil = await sb.from('planlar').select('id,proje_id,durum:veri->>durum').eq('veri->>acil', 'true')
+  D.acilSayi = (acil.data || []).filter((r) => !BITMIS.includes(r.durum) && projeBul(r.proje_id)).length
+  // Görevlerim sekmesindeki sayı (yöneticinin kendi bitmemiş işleri)
+  try { D.gorevler = await rpc('web_gorevlerim'); D.gorevSayi = (D.gorevler || []).length } catch { /* sekme açılınca yeniden denenir */ }
   D.sonOrtak = Date.now()
 }
 
 async function benimYukle() {
   D.ben = (await rpc('web_ben')) || D.ben
   D.gorevler = await rpc('web_gorevlerim')
+  D.gorevSayi = (D.gorevler || []).length
   D.gnPlanlar = D.ben.genelNobet?.gecerli && D.ben.genelNobetIzni ? await rpc('web_genel_nobet_planlar') : []
 }
 
@@ -281,8 +287,22 @@ function ciz(zorla = false) {
   if (!D.ben) return
   if (!zorla && odakta()) return
   const sekmeler = D.ben.yonetim
-    ? [['pano', 'Pano'], ['isler', 'İşler'], ['pp', 'Post prod', D.ppSayi], ['mesaj', 'Mesajlar'], ['nobet', 'Nöbet'], ['teslim', 'Teslim tarihleri'], ['benim', 'Benim işlerim']]
+    ? [['pano', 'Pano'], ['benim', 'Görevlerim', D.gorevSayi], ['isler', 'İşler'], ['pp', 'Post prod', D.ppSayi], ['mesaj', 'Mesajlar'], ['nobet', 'Nöbet'], ['teslim', 'Teslim']]
     : []
+  // Yönetimde en üstte her sekmede duran bildirim şeridi (dokununca ilgili sekme açılır)
+  let serit = ''
+  if (D.ben.yonetim) {
+    const nl = yerelIso(new Date())
+    const nobetSimdi = (D.ayar?.nobetler || []).filter((n) => !n.bitirildi && n.bas <= nl && nl < n.bit)
+    const gn = D.ayar?.genelNobet
+    const gnAcik = gn && gn.acik && (!gn.bitis || Date.parse(gn.bitis) > Date.now())
+    const ogeler = []
+    if (D.ppSayi) ogeler.push(`<button class="bildirim-oge uyari" data-is="sekme" data-k="pp">Post prod: ${D.ppSayi} bekliyor</button>`)
+    if (D.acilSayi) ogeler.push(`<button class="bildirim-oge uyari" data-is="sekme" data-k="pano">${D.acilSayi} acil plan</button>`)
+    if (nobetSimdi.length) ogeler.push(`<button class="bildirim-oge" data-is="sekme" data-k="nobet">☾ Nöbette: ${esc(nobetSimdi.map((n) => kisiAd(n.kisi)).join(', '))}</button>`)
+    if (gnAcik) ogeler.push(`<button class="bildirim-oge" data-is="sekme" data-k="nobet">Genel nöbet açık</button>`)
+    serit = `<div class="dis bildirim-serit">${ogeler.length ? ogeler.join('') : '<span class="bildirim-oge tamam">✓ Bekleyen bir şey yok</span>'}</div>`
+  }
   const icerik = { benim: benimEkrani, pano: panoEkrani, isler: islerEkrani, pp: ppEkrani, mesaj: mesajEkrani, nobet: nobetEkrani, teslim: teslimEkrani }[D.sekme] || benimEkrani
   const kaydir = window.scrollY
   $('#kok').innerHTML = `
@@ -294,6 +314,7 @@ function ciz(zorla = false) {
         <button class="kucuk-btn" data-is="cikis">Çıkış</button>
       </div></div>
       ${sekmeler.length ? `<div class="dis"><nav class="sekmeler" role="tablist">${sekmeler.map(([k, ad, n]) => `<button class="sekme" role="tab" aria-selected="${D.sekme === k}" data-is="sekme" data-k="${k}">${ad}${n ? `<span class="rozet">${n}</span>` : ''}</button>`).join('')}</nav></div>` : ''}
+      ${serit}
     </header>
     <main class="dis">${icerik()}</main>`
   window.scrollTo(0, kaydir)
