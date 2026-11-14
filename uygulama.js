@@ -59,7 +59,7 @@ const hataYazi = (m) => (HATALAR.find(([k]) => String(m || '').includes(k)) || [
 
 // ---- durum ----
 const D = {
-  ben: null, sekme: al('wp-sekme') || 'pano', taslak: {}, mesgul: false, sonOrtak: 0,
+  ben: null, sekme: al('wp-sekme') || 'pano', taslak: {}, mesgul: false, sonOrtak: 0, acik: new Set(),
   kisiler: [], kisiMap: new Map(), projeler: [], ayar: { nobetler: [], genelNobet: null },
   gorevler: null, gnPlanlar: [],
   saatler: null, panoPlan: new Map(), acilPlanlar: [],
@@ -116,7 +116,15 @@ function kalanYaz(t) {
   if (gun === 0) return '<span style="color:var(--acil);font-weight:700">bugün</span>'
   return gun === 1 ? '<span style="color:var(--eks);font-weight:700">yarın</span>' : gun + ' gün kaldı'
 }
-const durumRozet = (d) => `<span class="durum d-${esc(d || 'bekliyor')}">${esc(DURUM_YAZI[d] || d || 'Bekliyor')}</span>`
+// Plan satırı: kapalıyken tek satır (ACİL, no, durum, kısa açıklama, sağda ek bilgi); dokununca ayrıntı açılır.
+// Açık satırlar D.acik'te tutulur, 30 sn'lik yenilemede kapanmaz.
+function planSatiri({ anahtar, acil, iptal, no, durum, aciklama, sag = '', govde }) {
+  return `<details class="plan satirli ${acil && !iptal ? 'acil' : ''} ${iptal ? 'iptal' : ''}" data-ac="${esc(anahtar)}" ${D.acik.has(anahtar) ? 'open' : ''}>
+    <summary class="plan-satir">${acil && !iptal ? '<span class="acil-yazi">ACİL</span>' : ''}<span class="no">${esc(kisaNo(no))}</span>${durumRozet(durum)}<span class="kisa">${esc(aciklama || '')}</span>${sag ? `<span class="sag-bilgi">${sag}</span>` : ''}</summary>
+    <div class="plan-govde">${govde}</div>
+  </details>`
+}
+const durumRozet = (d) =>`<span class="durum d-${esc(d || 'bekliyor')}">${esc(DURUM_YAZI[d] || d || 'Bekliyor')}</span>`
 
 async function rpc(ad, args = {}) {
   const r = await sb.rpc(ad, args)
@@ -338,26 +346,26 @@ function benimEkrani() {
   if (ben.genelNobet?.gecerli && ben.genelNobetIzni) {
     h += `<section class="kart"><h2>Genel nöbet açık</h2>
       <p class="kucuk soluk" style="margin-top:-4px">Başlanmamış planlardan istediğini al; plan sana atanır. Sayaç ve "Bitti" After Effects panelinde.</p>
-      <div class="liste">${D.gnPlanlar.length ? D.gnPlanlar.map((x) => `
-        <div class="plan ${x.acil ? 'acil' : ''}">
-          <div class="bas">${x.acil ? '<span class="acil-yazi">ACİL</span>' : ''}<span class="no">${esc(kisaNo(x.no))}</span><span class="proje">${esc(x.etiket)}</span></div>
-          <div class="aciklama">${esc(x.aciklama || '')}</div>
-          <div class="alt"><span>Teslim: ${tarihYaz(x.teslim)}</span>${x.sorumlu && x.sorumlu !== '—' ? `<span>Şu an: ${esc(x.sorumlu)}</span>` : ''}</div>
-          <button class="btn ana" data-is="isiAl" data-pid="${esc(x.pid)}" data-no="${x.bolum ?? ''}" data-plan="${esc(x.plan)}">İşi al</button>
-        </div>`).join('') : '<div class="bos">Alınabilecek plan yok.</div>'}</div></section>`
+      <div class="liste">${D.gnPlanlar.length ? D.gnPlanlar.map((x) => planSatiri({
+        anahtar: 'gn:' + x.plan, acil: x.acil, no: x.no, durum: 'bekliyor', aciklama: x.aciklama, sag: esc(x.etiket),
+        govde: `<div class="aciklama">${esc(x.aciklama || '')}</div>
+          <div class="alt"><span>${esc(x.etiket)}</span><span>Teslim: ${tarihYaz(x.teslim)}</span>${x.sorumlu && x.sorumlu !== '—' ? `<span>Şu an: ${esc(x.sorumlu)}</span>` : ''}</div>
+          <button class="btn ana" data-is="isiAl" data-pid="${esc(x.pid)}" data-no="${x.bolum ?? ''}" data-plan="${esc(x.plan)}">İşi al</button>`
+      })).join('') : '<div class="bos">Alınabilecek plan yok.</div>'}</div></section>`
   }
 
   const l = D.gorevler || []
   const acil = l.filter((x) => x.acil)
   const kalan = l.filter((x) => !x.acil)
-  const kart = (x) => `
-    <div class="plan ${x.acil ? 'acil' : ''}">
-      <div class="bas">${x.acil ? '<span class="acil-yazi">ACİL</span>' : ''}<span class="no">${esc(kisaNo(x.no))}</span><span class="proje">${esc(x.etiket)}</span>${durumRozet(x.durum)}</div>
+  const kart = (x) => planSatiri({
+    anahtar: 'g:' + x.plan + ':' + (x.rol || '') + ':' + (x.is || ''), acil: x.acil, no: x.no, durum: x.durum, aciklama: x.aciklama,
+    sag: esc(x.rol === 'blur' ? 'Blur' : x.rol === 'yardim' ? (x.is || 'Yardım') : kalanYaz(x.teslim)),
+    govde: `<div class="kucuk soluk">${esc(x.etiket)}</div>
       ${x.rol === 'blur' ? '<div class="kucuk"><b>Senin işin: Blur</b></div>' : x.rol === 'yardim' ? `<div class="kucuk"><b>Senin işin (Yardım): ${esc(x.is || '')}</b></div>` : ''}
       <div class="aciklama">${esc(x.aciklama || '')}</div>
       ${x.revize ? `<div class="not-kutu"><b>Revize ${esc(x.revize.sayi || '')}</b>${x.revize.not ? ' · ' + esc(x.revize.not) : ''}</div>` : ''}
-      <div class="alt"><span>Teslim: ${tarihYaz(x.teslim)}</span><span>${kalanYaz(x.teslim)}</span></div>
-    </div>`
+      <div class="alt"><span>Teslim: ${tarihYaz(x.teslim)}</span><span>${kalanYaz(x.teslim)}</span></div>`
+  })
   h += `<section class="kart"><h2>Planlarım <span class="soluk kucuk">(${l.length})</span></h2>
     ${D.gorevler == null ? '<div class="bos">Yükleniyor…</div>' : !l.length ? '<div class="bos">Şu an sana atanmış bitmemiş plan yok.</div>' : `
       <div class="liste">${acil.map(kart).join('')}${acil.length && kalan.length ? '<div class="ayir"></div>' : ''}${kalan.map(kart).join('')}</div>`}
@@ -432,8 +440,10 @@ function islerEkrani() {
     const sorumlu = v.sorumlular?.[0] || ''
     const kisiSecenek = [...(sorumlu && !aktif.some((k) => k.id === sorumlu) ? [{ id: sorumlu, ad: kisiAd(sorumlu) + ' (pasif)' }] : []), ...aktif]
     const ref = `data-pid="${esc(r.proje_id)}" data-no="${r.bolum_no ?? ''}" data-plan="${esc(r.id)}"`
-    return `<article class="plan ${v.acil && !iptal ? 'acil' : ''} ${iptal ? 'iptal' : ''}">
-      <div class="bas">${v.acil && !iptal ? '<span class="acil-yazi">ACİL</span>' : ''}<span class="no">${esc(kisaNo(v.no))}</span>${durumRozet(v.durum)}${ek ? '<span class="kucuk soluk">ek plate</span>' : ''}</div>
+    return planSatiri({
+      anahtar: 'i:' + r.id, acil: v.acil, iptal, no: v.no, durum: v.durum, aciklama: v.aciklama,
+      sag: esc(ek ? 'ek plate' : kisiAd(sorumlu)),
+      govde: `${ek ? '<span class="kucuk soluk">ek plate</span>' : ''}
       <div class="aciklama">${esc(v.aciklama || '')}</div>
       ${v.durum === 'revize' && v.revize ? `<div class="not-kutu"><b>Revize ${esc(v.revize.sayi || '')}</b>${v.revize.not ? ' · ' + esc(v.revize.not) : ''}</div>` : ''}
       ${v.animasalNot ? `<div class="kucuk soluk">Animasal notu: ${esc(v.animasalNot)}</div>` : ''}
@@ -445,8 +455,8 @@ function islerEkrani() {
       </div>
       <button class="btn ${v.acil ? '' : 'kotu'}" data-is="planAcil" data-acil="${v.acil ? '0' : '1'}" ${ref}>${v.acil ? 'Acilden çıkar' : 'Acil yap'}</button>
       ${v.durum === 'revize' && v.revize ? `<label class="alan" style="margin:4px 0 0"><span>Revize notu</span><textarea data-taslak="rn:${esc(r.id)}" maxlength="1000">${esc(taslak('rn:' + r.id, v.revize.not || ''))}</textarea></label>
-        <button class="btn" data-is="revizeNot" ${ref}>Revize notunu kaydet</button>` : ''}`}
-    </article>`
+        <button class="btn" data-is="revizeNot" ${ref}>Revize notunu kaydet</button>` : ''}`}`
+    })
   }).join('') : '<div class="kart bos">Bu süzgeçte plan yok.</div>'}</section>`
   return h
 }
@@ -725,6 +735,12 @@ document.addEventListener('change', (e) => {
   const f = el.dataset?.degis && DEGISIM[el.dataset.degis]
   if (f) f(el)
 })
+// açılan plan satırları yenilemede açık kalsın ('toggle' kabarmaz, yakalama aşamasında dinlenir)
+document.addEventListener('toggle', (e) => {
+  const k = e.target?.dataset?.ac
+  if (!k) return
+  if (e.target.open) D.acik.add(k); else D.acik.delete(k)
+}, true)
 document.addEventListener('input', (e) => {
   const el = e.target
   if (el.dataset?.taslak && el.type !== 'checkbox') D.taslak[el.dataset.taslak] = el.value
