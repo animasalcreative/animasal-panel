@@ -72,6 +72,11 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 @media (max-width:420px){.plan-govde .kontroller{grid-template-columns:minmax(0,1fr)}}
 .plan-govde .btn{max-width:100%;white-space:normal}
 main{grid-template-columns:minmax(0,1fr)}
+/* telefon yazı kutusuna dokununca kendiliğinden büyütmesin (16 pikselden küçük yazıda büyütüyor) */
+@media (max-width:640px){input,select,textarea{font-size:16px}}
+/* büyütülünce çıkan sabit "Normal görünüm" düğmesi */
+#normalGorunum{position:fixed;right:12px;bottom:calc(16px + env(safe-area-inset-bottom));z-index:50;display:none;border:0;border-radius:99px;padding:12px 16px;font-weight:700;font-size:15px;background:var(--marka);color:var(--bg);box-shadow:0 4px 14px rgba(0,0,0,.3)}
+#normalGorunum.gorunur{display:block}
 .kart,.alan{min-width:0}
 body{overflow-x:hidden}
 /* üstte duran bildirim şeridi (yönetim) */

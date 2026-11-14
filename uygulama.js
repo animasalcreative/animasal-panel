@@ -735,6 +735,27 @@ document.addEventListener('change', (e) => {
   const f = el.dataset?.degis && DEGISIM[el.dataset.degis]
   if (f) f(el)
 })
+// Telefonda sayfa büyütülünce sabit "Normal görünüm" düğmesi çıkar; basınca büyütme sıfırlanır
+// (görünüm ayarı kısa süre en fazla 1 kata kilitlenip geri bırakılır; iPhone ve Android'de büyütmeyi sıfırlar)
+;(() => {
+  const vv = window.visualViewport
+  if (!vv) return
+  const d = document.createElement('button')
+  d.id = 'normalGorunum'
+  d.type = 'button'
+  d.textContent = '⤢ Normal görünüm'
+  document.body.appendChild(d)
+  const bak = () => d.classList.toggle('gorunur', vv.scale > 1.05)
+  vv.addEventListener('resize', bak)
+  vv.addEventListener('scroll', bak)
+  d.addEventListener('click', () => {
+    const m = document.querySelector('meta[name="viewport"]')
+    if (!m) return
+    const eski = m.getAttribute('content')
+    m.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover')
+    setTimeout(() => { m.setAttribute('content', eski); window.scrollTo(0, window.scrollY); bak() }, 350)
+  })
+})()
 // açılan plan satırları yenilemede açık kalsın ('toggle' kabarmaz, yakalama aşamasında dinlenir)
 document.addEventListener('toggle', (e) => {
   const k = e.target?.dataset?.ac
