@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Animasal Pipeline</title>
+<meta name="description" content="Animasal Pipeline web paneli: ekip için gelen planlar, yönetim için pano, işler, post prod, mesajlar ve nöbet.">
+<meta name="theme-color" content="#163a63">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Animasal">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="ikon-192.png">
+<link rel="apple-touch-icon" href="ikon-192.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Inter:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="stil.css">
+</head>
+<body>
+<!-- Animasal Pipeline web paneli (14.11.2026). Okuma: tablolar (kurallar / RLS); yazma: yalnızca web_* işlevleri (app/supabase/web-panel.sql). -->
+<div id="kok"><div class="yukleniyor">Yükleniyor…</div></div>
+<div id="bildirim" role="status" aria-live="polite"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<script src="uygulama.js"></script>
+</body>
+</html>
