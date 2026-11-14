@@ -53,8 +53,10 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 .plan-satir::-webkit-details-marker{display:none}
 .plan-satir::after{content:"▸";margin-left:4px;color:var(--soluk);flex:none}
 .plan.satirli[open] .plan-satir::after{content:"▾"}
-.plan-satir .no{flex:none}
-.plan-satir .durum{flex:none}
+.plan-satir .no{flex:0 1 auto;min-width:0;max-width:38%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.plan-satir .durum{flex:0 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.plan-satir .acil-yazi{flex:none}
+.plan-satir{min-width:0;max-width:100%;box-sizing:border-box}
 .plan-satir .kisa{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px}
 .plan-satir .sag-bilgi{flex:none;max-width:34%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px;color:var(--soluk)}
 .plan-govde{display:grid;gap:6px;padding:0 12px 12px;border-top:1px solid var(--cizgi);padding-top:10px}
