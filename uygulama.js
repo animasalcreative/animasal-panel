@@ -340,7 +340,7 @@ function benimEkrani() {
       <button class="btn ${g?.durum === 'gelemiyorum' || g?.durum === 'gelemiyor' ? 'kotu secili' : ''}" data-is="gelis" data-d="gelemiyor">Bugün gelemiyorum</button>
     </div>
     <div class="alan" style="margin:10px 0 0"><span>Not (isteğe bağlı)</span><input type="text" maxlength="200" data-taslak="gelisNot" value="${esc(taslak('gelisNot', g?.not || ''))}" placeholder="Örnek: 11'de gelirim"></div>
-    ${g ? `<p class="kucuk soluk" style="margin:6px 0 0">Bugün için seçimin: <b>${g.durum === 'geliyor' ? 'geliyorum' : 'gelemiyorum'}</b>${g.not ? ' · ' + esc(g.not) : ''}</p>` : '<p class="kucuk soluk" style="margin:6px 0 0">Bugün için henüz seçim yapmadın.</p>'}
+    ${g ? `<p class="kucuk soluk" style="margin:6px 0 0">Bugün için seçimin: <b>${g.durum === 'geliyor' ? 'geliyorum' : 'gelemiyorum'}</b>${g.not ? ' · ' + esc(g.not) : ''} · geri almak için aynı düğmeye yeniden bas</p>` : '<p class="kucuk soluk" style="margin:6px 0 0">Bugün için henüz seçim yapmadın.</p>'}
   </section>`
 
   if (ben.genelNobet?.gecerli && ben.genelNobetIzni) {
@@ -619,9 +619,12 @@ const ISLER = {
     await tazele()
   },
   gelis: (el) => islem(async () => {
-    const g = await rpc('web_gelis', { p_durum: el.dataset.d, p_not: taslak('gelisNot') || null })
+    // seçili düğmeye yeniden basınca seçim geri alınır
+    const simdiki = D.ben.gelis && D.ben.gelis.tarih === istanbulGunu() ? D.ben.gelis.durum : null
+    const geriAl = simdiki === el.dataset.d || (el.dataset.d === 'gelemiyor' && simdiki === 'gelemiyorum')
+    const g = await rpc('web_gelis', { p_durum: geriAl ? 'geri' : el.dataset.d, p_not: geriAl ? null : taslak('gelisNot') || null })
     D.ben.gelis = g
-    kaydedildi(el.dataset.d === 'geliyor' ? 'Bugün geliyorum kaydedildi' : 'Bugün gelemiyorum kaydedildi')
+    kaydedildi(geriAl ? 'Bugün için seçimin geri alındı' : el.dataset.d === 'geliyor' ? 'Bugün geliyorum kaydedildi' : 'Bugün gelemiyorum kaydedildi')
     ciz(true)
   }),
   isiAl: (el) => islem(async () => {
