@@ -200,6 +200,7 @@ async function ortakYukle() {
   D.kisiler = sirala(k.map((r) => ({ ...r.veri, id: r.id })), sira.kullanicilar)
   D.kisiMap = new Map(D.kisiler.map((x) => [x.id, x]))
   D.projeler = sirala(p.map((r) => ({ ...r.veri, id: r.id })), sira.projeler).filter((x) => !x.arsiv)
+  D.tumProjeNo = p.map((r) => +r.veri?.no || 0) // yeni proje no önerisi (arşivdekiler dahil)
   D.ayar = { nobetler: Array.isArray(ayar.nobetler) ? ayar.nobetler : [], genelNobet: ayar.genelNobet && typeof ayar.genelNobet === 'object' ? ayar.genelNobet : null }
   // post prod rozeti: kararınızı bekleyen istek + okunmamış mesaj
   const [i, m] = await Promise.all([
@@ -419,10 +420,59 @@ function panoEkrani() {
 }
 
 // ===== YÖNETİM: İşler =====
+// ===== 25.11 (Aytaç): web'den yeni proje ve yeni bölüm =====
+// Ortak veriye yazılır (webKurulum: true); klasörler ve post prod sheet'i sheet'i kontrol eden bilgisayarda (Pipeline açık, Google'a
+// bağlı) bir dakika içinde kendiliğinden kurulur. Biçim masaüstündeki projeEkle / bolumEkle ile aynı.
+const TURLER = [['dizi', 'TV dizisi (haftalık)'], ['platform', 'Platform (Netflix vb.)'], ['sinema', 'Sinema'], ['tvfilm', 'TV filmi'], ['reklam', 'Reklam'], ['klip', 'Klip']]
+const BOLUMLU = (t) => t === 'dizi' || t === 'platform'
+const asciiBuyuk = (ad) => String(ad || '').trim().replace(/[çğıiöşüÇĞİÖŞÜ]/g, (c) => ({ ç: 'C', ğ: 'G', ı: 'I', i: 'I', ö: 'O', ş: 'S', ü: 'U', Ç: 'C', Ğ: 'G', İ: 'I', Ö: 'O', Ş: 'S', Ü: 'U' })[c]).toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, '')
+const gunEkle = (t, g) => { const d = tarihAl(t)?.d ? new Date(tarihAl(t).d) : null; if (!d) return ''; d.setDate(d.getDate() + g); return yerelIso(d) }
+const KURULUM_NOTU = 'Klasörler ve post prod sheet\'i, sheet\'i kontrol eden bilgisayarda (Pipeline açık olmalı) bir dakika içinde kendiliğinden açılır.'
+
+function yeniBolumFormu(p) {
+  const son = p.bolumler[p.bolumler.length - 1]
+  const no = son ? son.no + 1 : 1
+  const oneri = son?.teslim ? gunEkle(son.teslim, 7) : ''
+  return `<section class="kart"><h2>Yeni bölüm: ${esc(p.ad)} · ${bolumKisa(no)}</h2>
+    ${son?.teslim ? `<p class="kucuk soluk" style="margin:0 0 8px">${bolumKisa(son.no)} teslimi ${tarihYaz(son.teslim)}. Önerilen: bir hafta sonrası, aynı saat.</p>` : ''}
+    <label class="alan"><span>${bolumKisa(no)} teslimi</span><input type="datetime-local" data-taslak="ybTeslim" value="${esc(taslak('ybTeslim', oneri))}"></label>
+    ${p.tur === 'dizi' ? `<label class="satir" style="gap:8px;margin:8px 0"><input type="checkbox" data-taslak="ybHaftalik" ${taslak('ybHaftalik', !p.haftalik) ? 'checked' : ''}> Bundan sonra haftalık düzen bu olsun</label>` : ''}
+    <p class="kucuk soluk">${KURULUM_NOTU}</p>
+    <div class="satir" style="gap:8px"><button class="btn" data-is="yeniForm" data-k="">Vazgeç</button><button class="btn ana" data-is="bolumAc" data-pid="${esc(p.id)}" data-no="${no}">${bolumKisa(no)}'ü aç</button></div>
+  </section>`
+}
+function yeniProjeFormu() {
+  const tur = taslak('ypTur', 'dizi')
+  const enBuyuk = Math.max(0, ...D.tumProjeNo)
+  return `<section class="kart"><h2>Yeni proje</h2>
+    <div class="iki">
+      <label class="alan"><span>Proje adı</span><input data-taslak="ypAd" value="${esc(taslak('ypAd'))}" placeholder="GÜLLER VE GÜNAHLAR"></label>
+      <label class="alan"><span>Müşteri / yapım</span><input data-taslak="ypMusteri" value="${esc(taslak('ypMusteri'))}" placeholder="NGM"></label>
+      <label class="alan"><span>Tür</span><select data-taslak="ypTur" data-degis="yeniciz">${TURLER.map(([k, a]) => `<option value="${k}" ${k === tur ? 'selected' : ''}>${a}</option>`).join('')}</select></label>
+      <label class="alan"><span>Proje no (klasör numarası)</span><input type="number" min="1" data-taslak="ypNo" value="${esc(taslak('ypNo', String(enBuyuk + 1)))}"></label>
+      ${BOLUMLU(tur) ? `<label class="alan"><span>Çalışılacak ilk bölüm no</span><input type="number" min="1" data-taslak="ypBolum" value="${esc(taslak('ypBolum', '1'))}"></label>` : ''}
+      <label class="alan"><span>${BOLUMLU(tur) ? 'İlk bölümün teslimi' : 'Teslim tarihi'}</span><input type="datetime-local" data-taslak="ypTeslim" value="${esc(taslak('ypTeslim'))}"></label>
+      ${tur === 'reklam' ? `<label class="alan"><span>Versiyonlar (virgülle)</span><input data-taslak="ypVersiyon" value="${esc(taslak('ypVersiyon'))}" placeholder="OKUL, MARKET"></label>` : ''}
+    </div>
+    <div style="display:grid;gap:6px;margin:10px 0">
+      ${tur === 'dizi' ? `<label class="satir" style="gap:8px"><input type="checkbox" data-taslak="ypHaftalik" ${taslak('ypHaftalik', true) ? 'checked' : ''}> Haftalık (her hafta aynı gün ve saat)</label>` : ''}
+      <label class="satir" style="gap:8px"><input type="checkbox" data-taslak="ypNetflix" ${taslak('ypNetflix', tur === 'platform') ? 'checked' : ''}> Netflix kuralları (görseller Drive'a / buluta gitmez)</label>
+      <label class="satir" style="gap:8px"><input type="checkbox" data-taslak="ypSheet" ${taslak('ypSheet', true) ? 'checked' : ''}> Post prod sheet'i açılsın (bölüm başına)</label>
+    </div>
+    <p class="kucuk soluk">Klasör adı: <b>${esc(taslak('ypAd') ? `${String(taslak('ypNo', String(enBuyuk + 1))).padStart(2, '0')}-${asciiBuyuk(taslak('ypAd'))}` : '—')}</b> · ekip: bütün ekip (freelance hariç; programdan değiştirilir). ${KURULUM_NOTU} Var olan bir klasörü bağlamak programdan yapılır.</p>
+    <div class="satir" style="gap:8px"><button class="btn" data-is="yeniForm" data-k="">Vazgeç</button><button class="btn ana" data-is="projeAc">Projeyi aç</button></div>
+  </section>`
+}
+
 function islerEkrani() {
   const p = projeBul(D.isP)
   const bolumler = Array.isArray(p?.bolumler) ? p.bolumler : null
-  let h = `<section class="kart"><div class="iki">
+  const yeniDugmeler = `<div class="satir" style="gap:8px;margin:0 0 10px;flex-wrap:wrap">
+    <button class="btn" data-is="yeniForm" data-k="proje">+ Yeni proje</button>
+    ${p && bolumler ? `<button class="btn" data-is="yeniForm" data-k="bolum">+ Yeni bölüm (${bolumKisa((bolumler[bolumler.length - 1]?.no || 0) + 1)})</button>` : ''}</div>`
+  if (D.form === 'proje') return yeniDugmeler + yeniProjeFormu()
+  if (D.form === 'bolum' && p && bolumler) return yeniDugmeler + yeniBolumFormu(p)
+  let h = yeniDugmeler + `<section class="kart"><div class="iki">
       <label class="alan"><span>Proje</span><select data-degis="isProje">${D.projeler.map((x) => `<option value="${esc(x.id)}" ${x.id === D.isP ? 'selected' : ''}>${esc(x.ad)}</option>`).join('')}</select></label>
       ${bolumler ? `<label class="alan"><span>Bölüm</span><select data-degis="isBolum">${bolumler.map((b) => `<option value="${b.no}" ${String(b.no) === String(D.isB) ? 'selected' : ''}>${bolumKisa(b.no)}${b.durum === 'teslim' ? ' · teslim edildi' : ''}</option>`).join('')}</select></label>` : '<div></div>'}
     </div>
@@ -602,6 +652,51 @@ async function planDegistir(el, degisiklik, yazi) {
 }
 
 const ISLER = {
+  // 25.11: web'den yeni proje / bölüm
+  yeniForm: (el) => { D.form = el.dataset.k || null; for (const k of Object.keys(D.taslak)) if (/^(yp|yb)/.test(k)) delete D.taslak[k]; ciz(true) },
+  bolumAc: (el) => islem(async () => {
+    const pid = el.dataset.pid, no = Number(el.dataset.no)
+    const teslim = $('[data-taslak="ybTeslim"]')?.value || taslak('ybTeslim')
+    if (!teslim) throw new Error('Teslim tarihini gir.')
+    const { data, error } = await sb.from('projeler').select('veri').eq('id', pid).single()
+    if (error || !data) throw new Error('Proje okunamadı: ' + (error?.message || 'yok'))
+    const veri = data.veri
+    const bolumler = Array.isArray(veri.bolumler) ? veri.bolumler : []
+    if (bolumler.some((b) => b.no === no)) throw new Error(`${bolumKisa(no)} zaten var (başka biri az önce açmış olabilir). Sayfa yenilendi.`)
+    const haftalik = veri.tur === 'dizi' && (taslak('ybHaftalik', !veri.haftalik) === true)
+    const yeni = { ...veri, bolumler: [...bolumler, { no, teslim: teslim.slice(0, 16), hist: [], durum: 'aktif', webKurulum: true }].sort((a, b) => a.no - b.no), ...(haftalik ? { haftalik: teslim.slice(0, 16) } : {}) }
+    const u = await sb.from('projeler').update({ veri: yeni, guncelleme: new Date().toISOString() }).eq('id', pid).select('id')
+    if (u.error || !u.data?.length) throw new Error('Kaydedilemedi: ' + (u.error?.message || 'yetki yok'))
+    kaydedildi(`${projeBolum(veri, no)} açıldı · klasörler ve sheet Pipeline'da kurulacak`)
+    D.form = null; D.isB = String(no); sakla('wp-is-bolum', D.isB)
+    await ortakYukle(); await islerYukle(); ciz(true)
+  }),
+  projeAc: () => islem(async () => {
+    const ad = String(taslak('ypAd')).trim()
+    const tur = taslak('ypTur', 'dizi')
+    const no = Number(taslak('ypNo', String(Math.max(0, ...D.tumProjeNo) + 1)))
+    const teslim = String(taslak('ypTeslim') || '').slice(0, 16) || null
+    if (!ad || !asciiBuyuk(ad)) throw new Error('Proje adını yaz.')
+    if (!(no > 0)) throw new Error('Proje numarası gir.')
+    if (D.tumProjeNo.includes(no) && !confirm(`${no} numaralı başka bir proje var. Yine de bu numarayla açılsın mı?`)) return
+    const versiyonlar = String(taslak('ypVersiyon')).split(/[,;]+/).map((v) => v.trim()).filter(Boolean)
+    if (tur === 'reklam' && !versiyonlar.length) throw new Error('En az bir versiyon adı yaz (örn. OKUL, MARKET).')
+    const id = crypto.randomUUID()
+    const p = { id, ad, musteri: String(taslak('ypMusteri')).trim(), tur, no, klasor: `${String(no).padStart(2, '0')}-${asciiBuyuk(ad)}`, acil: false, olusturma: new Date().toISOString(), olusturan: D.ben.id, hist: [], genelHist: [], netflix: taslak('ypNetflix', tur === 'platform') === true, webKurulum: true, sheetAyar: { dosyadanYaz: true, ...(taslak('ypSheet', true) === true ? { otomatik: true } : {}) } }
+    if (BOLUMLU(tur)) {
+      p.bolumler = [{ no: Number(taslak('ypBolum', '1')) || 1, teslim: tur === 'platform' ? teslim : teslim, hist: [], durum: 'aktif', webKurulum: true }]
+      if (tur === 'dizi' && taslak('ypHaftalik', true) === true && teslim) p.haftalik = teslim
+      if (tur === 'platform') p.teslimModu = 'bolum'
+    } else {
+      p.teslim = teslim
+      if (tur === 'reklam') p.versiyonlar = versiyonlar
+    }
+    const r = await sb.from('projeler').insert({ id, veri: p, guncelleme: new Date().toISOString() })
+    if (r.error) throw new Error('Kaydedilemedi: ' + r.error.message)
+    kaydedildi(`${ad} açıldı · klasörler ve sheet Pipeline'da kurulacak`)
+    D.form = null; D.isP = id; D.isB = null; sakla('wp-is-proje', id)
+    await ortakYukle(); await islerYukle(); ciz(true)
+  }),
   googleGiris: () => sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: location.origin + location.pathname, queryParams: { prompt: 'select_account' } } }),
   cikis: async () => { await sb.auth.signOut(); location.reload() },
   tema: () => {
@@ -723,7 +818,8 @@ const DEGISIM = {
   }),
   ppProje: (el) => { if (el.value) ISLER.ppAc({ dataset: { pid: el.value, no: '', plan: '' } }) },
   kanal: (el) => islem(async () => { D.kanal = el.value; sakla('wp-kanal', D.kanal); D.kanalMesaj = null; ciz(true); await mesajYukle(); ciz(true); const s = $('#kanalMesajlar'); if (s) s.scrollTop = s.scrollHeight }),
-  nbYetki: (el) => { if (el.checked) D.nbYetki.add(el.value); else D.nbYetki.delete(el.value) }
+  nbYetki: (el) => { if (el.checked) D.nbYetki.add(el.value); else D.nbYetki.delete(el.value) },
+  yeniciz: () => ciz(true)
 }
 
 document.addEventListener('click', (e) => {
