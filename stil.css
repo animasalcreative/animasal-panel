@@ -58,7 +58,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 .plan-satir .acil-yazi{flex:none}
 .plan-satir{min-width:0;max-width:100%;box-sizing:border-box}
 .plan-satir .kisa{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px}
-.plan-satir .sag-bilgi{flex:none;max-width:34%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px;color:var(--soluk)}
+.plan-satir .sag-bilgi{flex:none;max-width:40%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px;color:var(--soluk)}
 .plan-govde{display:grid;gap:6px;padding:0 12px 12px;border-top:1px solid var(--cizgi);padding-top:10px}
 .liste:has(> .plan.satirli){gap:6px}
 /* açılınca ekrandan taşmasın: liste sütunu ve içerik genişliği ekranla sınırlı */
@@ -171,3 +171,7 @@ label.kutu input{width:20px;height:20px}
 .tost{background:var(--yazi);color:var(--bg);border-radius:10px;padding:10px 14px;font-weight:600;box-shadow:0 6px 24px rgba(0,0,0,.25)}
 .tost.hata{background:var(--rev);color:#fff}
 @media (min-width:900px){#bildirim{left:auto;right:24px;transform:none}}
+
+/* kişi renkleri (Pipeline'daki "renkli etiket" gibi: renk noktası + hafif renkli zemin) */
+.kisi-et{display:inline-flex;align-items:center;gap:5px;padding:1px 8px 1px 6px;border-radius:999px;background:color-mix(in srgb,var(--kr) 18%,transparent);color:var(--yazi);font-weight:500;white-space:nowrap}
+.kisi-et::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--kr);flex:none}

@@ -118,8 +118,11 @@ function kalanYaz(t) {
 }
 // Plan satırı: kapalıyken tek satır (ACİL, no, durum, kısa açıklama, sağda ek bilgi); dokununca ayrıntı açılır.
 // Açık satırlar D.acik'te tutulur, 30 sn'lik yenilemede kapanmaz.
-function planSatiri({ anahtar, acil, iptal, no, durum, aciklama, sag = '', govde }) {
-  return `<details class="plan satirli ${acil && !iptal ? 'acil' : ''} ${iptal ? 'iptal' : ''}" data-ac="${esc(anahtar)}" ${D.acik.has(anahtar) ? 'open' : ''}>
+// Kişinin rengi (Tercihler → Ekip renkleri); yalnızca #rrggbb kabul edilir.
+const kisiRenk = (id) => { const r = D.kisiMap?.get(id)?.renk; return /^#[0-9a-f]{6}$/i.test(r || '') ? r : '' }
+const renkliAd = (id, ad = kisiAd(id)) => { const r = kisiRenk(id); return r ? `<span class="kisi-et" style="--kr:${r}">${esc(ad)}</span>` : esc(ad) }
+function planSatiri({ anahtar, acil, iptal, no, durum, aciklama, sag = '', govde, renk = '' }) {
+  return `<details class="plan satirli ${acil && !iptal ? 'acil' : ''} ${iptal ? 'iptal' : ''} " data-ac="${esc(anahtar)}" ${D.acik.has(anahtar) ? 'open' : ''}>
     <summary class="plan-satir">${acil && !iptal ? '<span class="acil-yazi">ACİL</span>' : ''}<span class="no">${esc(kisaNo(no))}</span>${durumRozet(durum)}<span class="kisa">${esc(aciklama || '')}</span>${sag ? `<span class="sag-bilgi">${sag}</span>` : ''}</summary>
     <div class="plan-govde">${govde}</div>
   </details>`
@@ -400,7 +403,7 @@ function panoEkrani() {
     const p = projeBul(s.pid || r?.proje_id)
     const kopuk = s.son && simdi - Date.parse(s.son) > 20 * 60000
     const ad = kisiAd(s.kisi)
-    return `<div class="calisan"><div class="av">${esc(ad.slice(0, 1))}</div>
+    return `<div class="calisan"><div class="av" ${kisiRenk(s.kisi) ? `style="background:${kisiRenk(s.kisi)};color:#fff"` : ''}>${esc(ad.slice(0, 1))}</div>
       <div><b>${esc(ad)}</b><div class="kucuk soluk">${esc(projeBolum(p, s.bolumNo ?? r?.bolum_no))} · ${esc(kisaNo(r?.veri?.no))}${s.agId ? ' · Yardım adımı' : ''}</div>
         ${r?.veri?.aciklama ? `<div class="kucuk">${esc(String(r.veri.aciklama).slice(0, 120))}</div>` : ''}
         ${kopuk ? `<div class="kucuk" style="color:var(--rev)">Son görülme ${tarihYaz(s.son)} (program kapanmış olabilir)</div>` : ''}</div>
@@ -415,7 +418,7 @@ function panoEkrani() {
 
   h += `<section class="kart"><h2>Acil planlar</h2>${D.acilPlanlar.length ? `<div class="liste">${D.acilPlanlar.map((r) => `
     <div class="plan acil"><div class="bas"><span class="acil-yazi">ACİL</span><span class="no">${esc(kisaNo(r.veri.no))}</span><span class="proje">${esc(projeBolum(projeBul(r.proje_id), r.bolum_no))}</span>${durumRozet(r.veri.durum)}</div>
-      <div class="aciklama">${esc(r.veri.aciklama || '')}</div><div class="alt"><span>Sorumlu: ${esc(kisiAd(r.veri.sorumlular?.[0]))}</span></div></div>`).join('')}</div>` : '<div class="bos">Acil plan yok.</div>'}</section>`
+      <div class="aciklama">${esc(r.veri.aciklama || '')}</div><div class="alt"><span>Sorumlu: ${renkliAd(r.veri.sorumlular?.[0])}</span></div></div>`).join('')}</div>` : '<div class="bos">Acil plan yok.</div>'}</section>`
   return h
 }
 
@@ -499,14 +502,14 @@ function islerEkrani() {
     const kisiSecenek = [...(sorumlu && !aktif.some((k) => k.id === sorumlu) ? [{ id: sorumlu, ad: kisiAd(sorumlu) + ' (pasif)' }] : []), ...aktif]
     const ref = `data-pid="${esc(r.proje_id)}" data-no="${r.bolum_no ?? ''}" data-plan="${esc(r.id)}"`
     return planSatiri({
-      anahtar: 'i:' + r.id, acil: v.acil, iptal, no: v.no, durum: v.durum, aciklama: v.aciklama,
-      sag: esc(ek ? 'ek plate' : kisiAd(sorumlu)) + (ekler.get(r.id)?.length ? ` <span class="soluk">+${ekler.get(r.id).length} ek plate</span>` : ''),
+      anahtar: 'i:' + r.id, acil: v.acil, iptal, no: v.no, durum: v.durum, aciklama: v.aciklama, renk: kisiRenk(sorumlu),
+      sag: (ek ? 'ek plate · ' + renkliAd(sorumlu) : renkliAd(sorumlu)) + (ekler.get(r.id)?.length ? ` <span class="soluk">+${ekler.get(r.id).length} ek plate</span>` : ''),
       govde: `${ek ? '<span class="kucuk soluk">ek plate</span>' : ''}
       <div class="aciklama">${esc(v.aciklama || '')}</div>
       ${(ekler.get(r.id) || []).map((e) => `<div class="kucuk soluk">↳ ${esc(kisaNo(e.veri.no))} · ek plate · ${esc(e.veri.aciklama || '')}</div>`).join('')}
       ${v.durum === 'revize' && v.revize ? `<div class="not-kutu"><b>Revize ${esc(v.revize.sayi || '')}</b>${v.revize.not ? ' · ' + esc(v.revize.not) : ''}</div>` : ''}
       ${v.animasalNot ? `<div class="kucuk soluk">Animasal notu: ${esc(v.animasalNot)}</div>` : ''}
-      <div class="alt"><span>Sorumlu: ${esc(kisiAd(sorumlu))}</span>${v.sorumlular?.[1] ? `<span>Blur: ${esc(kisiAd(v.sorumlular[1]))}</span>` : ''}${v.sonDegisim ? `<span>Son değişiklik: ${esc(kisiAd(v.sonDegisim.kisi))} · ${tarihYaz(v.sonDegisim.zaman)}</span>` : ''}</div>
+      <div class="alt"><span>Sorumlu: ${renkliAd(sorumlu)}</span>${v.sorumlular?.[1] ? `<span>Blur: ${renkliAd(v.sorumlular[1])}</span>` : ''}${v.sonDegisim ? `<span>Son değişiklik: ${esc(kisiAd(v.sonDegisim.kisi))} · ${tarihYaz(v.sonDegisim.zaman)}</span>` : ''}</div>
       ${ek ? '<p class="kucuk soluk" style="margin:0">Ek plate ana planın sorumlusuyla birlikte değişir.</p>' : iptal ? '<p class="kucuk soluk" style="margin:0">İptal edilmiş plan webde değiştirilmez.</p>' : `
       <div class="kontroller">
         <label class="alan"><span>Durum</span><select data-degis="planDurum" ${ref}>${DURUM_SECIM.map((d) => `<option value="${d}" ${d === (v.durum || 'bekliyor') ? 'selected' : ''}>${DURUM_YAZI[d]}</option>`).join('')}</select></label>
