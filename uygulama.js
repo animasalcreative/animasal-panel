@@ -481,7 +481,15 @@ function islerEkrani() {
   </section>`
   if (!p) return h + '<div class="kart bos">Açık proje yok.</div>'
   if (!D.planlar) return h + '<div class="kart bos">Yükleniyor…</div>'
-  const liste = D.planlar.filter((r) => D.isSuz === 'hepsi' || (D.isSuz === 'acil' ? r.veri.acil && r.veri.durum !== 'iptal' : !BITMIS.includes(r.veri.durum)))
+  // Ek plate'ler ana planın satırında görünür (masaüstündeki gibi); ana planı bu bölümde yoksa ayrı satır kalır.
+  const idler = new Set(D.planlar.map((r) => r.id))
+  const ekler = new Map()
+  for (const r of D.planlar) {
+    const ana = r.veri.anaPlan?.id
+    if (ana && idler.has(ana)) ekler.set(ana, [...(ekler.get(ana) || []), r])
+  }
+  const liste = D.planlar.filter((r) => !(r.veri.anaPlan?.id && idler.has(r.veri.anaPlan.id)))
+    .filter((r) => D.isSuz === 'hepsi' || (D.isSuz === 'acil' ? r.veri.acil && r.veri.durum !== 'iptal' : !BITMIS.includes(r.veri.durum)))
   const aktif = D.kisiler.filter((k) => k.aktif)
   h += `<section class="liste">${liste.length ? liste.map((r) => {
     const v = r.veri
@@ -492,9 +500,10 @@ function islerEkrani() {
     const ref = `data-pid="${esc(r.proje_id)}" data-no="${r.bolum_no ?? ''}" data-plan="${esc(r.id)}"`
     return planSatiri({
       anahtar: 'i:' + r.id, acil: v.acil, iptal, no: v.no, durum: v.durum, aciklama: v.aciklama,
-      sag: esc(ek ? 'ek plate' : kisiAd(sorumlu)),
+      sag: esc(ek ? 'ek plate' : kisiAd(sorumlu)) + (ekler.get(r.id)?.length ? ` <span class="soluk">+${ekler.get(r.id).length} ek plate</span>` : ''),
       govde: `${ek ? '<span class="kucuk soluk">ek plate</span>' : ''}
       <div class="aciklama">${esc(v.aciklama || '')}</div>
+      ${(ekler.get(r.id) || []).map((e) => `<div class="kucuk soluk">↳ ${esc(kisaNo(e.veri.no))} · ek plate · ${esc(e.veri.aciklama || '')}</div>`).join('')}
       ${v.durum === 'revize' && v.revize ? `<div class="not-kutu"><b>Revize ${esc(v.revize.sayi || '')}</b>${v.revize.not ? ' · ' + esc(v.revize.not) : ''}</div>` : ''}
       ${v.animasalNot ? `<div class="kucuk soluk">Animasal notu: ${esc(v.animasalNot)}</div>` : ''}
       <div class="alt"><span>Sorumlu: ${esc(kisiAd(sorumlu))}</span>${v.sorumlular?.[1] ? `<span>Blur: ${esc(kisiAd(v.sorumlular[1]))}</span>` : ''}${v.sonDegisim ? `<span>Son değişiklik: ${esc(kisiAd(v.sonDegisim.kisi))} · ${tarihYaz(v.sonDegisim.zaman)}</span>` : ''}</div>
